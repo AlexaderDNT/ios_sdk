@@ -4,11 +4,17 @@
 
 import WebKit
 
+private struct LivePreview {
+    let lpl: String
+    let lpc: String
+}
+
 private struct JsonAdUnitString {
     let auId: String
     let data: Data
     let adUnitsJson: String
     let otherJson: String
+    let lp: LivePreview?
 }
 
 @objc public protocol AdLoadCompletionHandler {
@@ -206,7 +212,11 @@ public class AdnuntiusAdWebView: WKWebView, WKUIDelegate, WKNavigationDelegate, 
         
         Logger.debug("Html Request: " + script)
         
-        self.loadHTMLString(script, baseURL: URL(string: AdnuntiusAdWebView.BASE_URL))
+        var baseUrl: String = AdnuntiusAdWebView.BASE_URL
+        if jsonData.lp != nil {
+            baseUrl = AdnuntiusAdWebView.BASE_URL + "?adn-lp-l=" + jsonData.lp!.lpl + "&adn-lp-c=" + jsonData.lp!.lpc
+        }
+        self.loadHTMLString(script, baseURL: URL(string: baseUrl))
         
         return true
     }
@@ -238,6 +248,11 @@ public class AdnuntiusAdWebView: WKWebView, WKUIDelegate, WKNavigationDelegate, 
             return nil
         }
         
+        var lp: LivePreview? = nil
+        if let lpl = config["lpl"] as? String, let lpc = config["lpc"] as? String {
+            lp = LivePreview(lpl: lpl, lpc: lpc)
+        }
+        
         // support the adn.js noCookies parameter, as well as the ad server useCookies
         // to provide support for loadFromApi customers migrating over
         var otherJsonText = ""
@@ -250,7 +265,8 @@ public class AdnuntiusAdWebView: WKWebView, WKUIDelegate, WKNavigationDelegate, 
         }
         Logger.debug("Json Request: " + adUnitsJsonText)
         Logger.debug("Other Request: " + otherJsonText)
-        return JsonAdUnitString(auId: auId, data: jsonData, adUnitsJson: adUnitsJsonText, otherJson: otherJsonText)
+        
+        return JsonAdUnitString(auId: auId, data: jsonData, adUnitsJson: adUnitsJsonText, otherJson: otherJsonText, lp: lp)
     }
 
     open func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
